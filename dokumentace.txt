@@ -1,16 +1,28 @@
 DOKUMENTACE – LORENZ SYSTEM
-=============================================
+===========================
 
 Popis
---------------
-Nnumerická simulaci Lorenzova systému pro různé hodnoty
+-----
+Aplikace slouží k numerické simulaci Lorenzova systému pro různé hodnoty
 parametrů sigma, beta, rho, dt a steps.
 
+Uživatel může:
+- vytvářet více trajektorií současně,
+- ukládat a načítat simulace ve formátu JSON,
+- zobrazovat trajektorie v interaktivním 3D grafu,
+- měnit barvy trajektorií,
+- volitelně použít B-spline interpolaci pro hladší vykreslení trajektorie.
+
+Animace je řízena podle skutečných simulačních kroků, nikoliv podle počtu
+interpolačních bodů spline.
+
 Použité knihovny
--------------------
-- JSON
+----------------
+- json
 - PySide6
 - Plotly
+- NumPy
+- SciPy
 
 Přehled tříd
 ============
@@ -49,13 +61,16 @@ Soubor: LorenzSimulation.py
 
 Popis:
 Třída reprezentuje celou simulaci, tedy kolekci více trajektorií
-a nastavení animace.
+a nastavení animace a vykreslení.
 
 Atributy:
 - trajectories: seznam trajektorií
 - frame_stride: krok vzorkování pro animaci
 - loop: určuje, zda se má animace opakovat
 - title: název simulace
+- use_bspline: určuje, zda se má použít B-spline interpolace
+- points_per_interval: počet interpolačních bodů na jeden interval
+  mezi dvěma sousedními simulačními body
 - MAX_TRAJECTORIES: maximální počet trajektorií (5)
 
 Metody:
@@ -110,7 +125,8 @@ Metody:
   Načte jednu trajektorii z JSON souboru.
 
 - save_simulation(simulation, path)
-  Uloží celou simulaci, tedy více trajektorií, do JSON souboru.
+  Uloží celou simulaci, tedy více trajektorií a nastavení vykreslení,
+  do JSON souboru.
 
 - load_simulation(path)
   Načte simulaci z JSON souboru a vrátí objekt LorenzSimulation.
@@ -124,13 +140,25 @@ Popis:
 Třída zajišťuje vytvoření interaktivního 3D grafu trajektorií
 pomocí knihovny Plotly.
 
+Podporuje:
+- standardní vykreslení trajektorie jako lomené čáry,
+- volitelné vyhlazení trajektorie pomocí B-spline,
+- animaci po skutečných simulačních krocích.
+
 Metody:
+- _create_bspline_curve(x, y, z, smoothing=0.0, points_per_interval=5)
+  Pomocná metoda, která vytvoří hustší body pomocí B-spline interpolace.
+  Vrací interpolované souřadnice a parametrizační osu spline.
+
 - create_animated_figure(simulation)
   Vytvoří a vrátí Plotly Figure s animací trajektorií.
   Graf obsahuje:
   - 3D vykreslení trajektorií
   - slider pro posun v čase
   - tlačítka Play a Pause
+
+  Pokud je zapnutý B-spline, trajektorie se vykreslí hladce, ale animace
+  se stále řídí původními simulačními kroky.
 
 - show(simulation)
   Vytvoří graf a zobrazí jej.
@@ -172,8 +200,12 @@ Hlavní metody:
   Načte hodnoty z formuláře a vytvoří objekt LorenzTrajectory.
 
 - _update_simulation_settings()
-  Aktualizuje nastavení simulace podle GUI
-  (frame_stride, loop).
+  Aktualizuje nastavení simulace podle GUI.
+  Nastavuje zejména:
+  - frame_stride
+  - loop
+  - use_bspline
+  - points_per_interval
 
 - refresh_list()
   Obnoví seznam trajektorií v GUI.
@@ -195,7 +227,8 @@ Hlavní metody:
   Uloží simulaci do JSON souboru.
 
 - load_simulation()
-  Načte simulaci z JSON souboru.
+  Načte simulaci z JSON souboru včetně nastavení animace
+  a spline interpolace.
 
 - export_html()
   Exportuje simulaci do HTML souboru.
@@ -227,16 +260,18 @@ Postup běhu aplikace
 2. Vytvoří se hlavní okno LorenzMainWindow.
 3. Uživatel zadá parametry trajektorie.
 4. Po kliknutí na "Přidat trajektorii" se:
-   - vytvoří objekt LorenzTrajectory
-   - spočítá se pomocí LorenzSimulator
-   - přidá se do LorenzSimulation
+   - vytvoří objekt LorenzTrajectory,
+   - spočítá se pomocí LorenzSimulator,
+   - přidá se do LorenzSimulation.
 5. Uživatel může:
-   - zobrazit graf
-   - uložit simulaci do JSON
-   - načíst simulaci z JSON
-   - exportovat interaktivní HTML
-   - měnit barvy trajektorií
-   - přepočítat načtená data
+   - zobrazit graf,
+   - uložit simulaci do JSON,
+   - načíst simulaci z JSON,
+   - exportovat interaktivní HTML,
+   - měnit barvy trajektorií,
+   - přepočítat načtená data,
+   - zapnout nebo vypnout B-spline interpolaci,
+   - upravit počet interpolačních bodů v každém intervalu.
 
 Poznámky
 ========
@@ -244,3 +279,7 @@ Poznámky
 - Pro výpočet je použita metoda RK4.
 - Graf je vytvářen pomocí Plotly a je interaktivní.
 - Barvy trajektorií lze měnit v GUI.
+- B-spline slouží pouze pro hladší vizualizaci trajektorie.
+- Animace a slider se i při použití B-spline řídí skutečnými simulačními kroky.
+- Vyšší počet interpolačních bodů zlepšuje hladkost křivky,
+  ale může zpomalit vykreslování.

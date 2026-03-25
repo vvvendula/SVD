@@ -12,6 +12,7 @@ from LorenzSimulator import LorenzSimulator
 from JSONtoStorage import JSONStorage
 from PlotlyVisualizer import PlotlyVisualizer
 
+
 class LorenzMainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -68,6 +69,14 @@ class LorenzMainWindow(QMainWindow):
         self.loop_checkbox = QCheckBox()
         self.loop_checkbox.setChecked(True)
 
+        self.bspline_checkbox = QCheckBox()
+        self.bspline_checkbox.setChecked(False)
+
+        self.points_per_interval_input = QSpinBox()
+        self.points_per_interval_input.setMinimum(1)
+        self.points_per_interval_input.setMaximum(100)
+        self.points_per_interval_input.setValue(5)
+
         self.color_preview = QLabel("      ")
         self.color_preview.setStyleSheet(
             f"background-color: {self.selected_color}; border: 1px solid black;"
@@ -75,6 +84,11 @@ class LorenzMainWindow(QMainWindow):
 
         self.choose_color_btn = QPushButton("Vybrat barvu")
         self.choose_color_btn.clicked.connect(self.choose_color)
+
+        self.points_per_interval_input = QSpinBox()
+        self.points_per_interval_input.setMinimum(1)
+        self.points_per_interval_input.setMaximum(100)
+        self.points_per_interval_input.setValue(5)
 
         color_layout = QHBoxLayout()
         color_layout.addWidget(self.color_preview)
@@ -92,6 +106,8 @@ class LorenzMainWindow(QMainWindow):
         form.addRow("Barva", color_layout)
         form.addRow("Frame stride", self.frame_stride_input)
         form.addRow("Loop", self.loop_checkbox)
+        form.addRow("Použít B-spline", self.bspline_checkbox)
+        form.addRow("Interpolačních bodů / interval", self.points_per_interval_input)
 
         layout.addLayout(form)
 
@@ -178,6 +194,8 @@ class LorenzMainWindow(QMainWindow):
     def _update_simulation_settings(self):
         self.simulation.frame_stride = self.frame_stride_input.value()
         self.simulation.loop = self.loop_checkbox.isChecked()
+        self.simulation.use_bspline = self.bspline_checkbox.isChecked()
+        self.simulation.points_per_interval = self.points_per_interval_input.value()
 
     def refresh_list(self):
         self.trajectory_list.clear()
@@ -244,6 +262,12 @@ class LorenzMainWindow(QMainWindow):
                 self.simulation = self.storage.load_simulation(path)
                 self.frame_stride_input.setValue(self.simulation.frame_stride)
                 self.loop_checkbox.setChecked(self.simulation.loop)
+                self.bspline_checkbox.setChecked(
+                    getattr(self.simulation, "use_bspline", False)
+                )
+                self.points_per_interval_input.setValue(
+                    getattr(self.simulation, "points_per_interval", 5)
+                )
                 self.refresh_list()
                 self.show_info("Simulace byla načtena.")
         except Exception as e:
