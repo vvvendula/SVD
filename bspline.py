@@ -3,13 +3,13 @@ import numpy as np
 
 def vyhlad_krivku(traj, s, pocet_novych_bodu):
 
-    # Vytvoření parametrů pro B-spline
+    #vytvoreni parametru
     tck, u = splprep(traj.T, s=s)
 
-    # Generování nových parametrů pro interpolaci
+    #nove parametry pro interpolaci
     u_new = np.linspace(0, 1, pocet_novych_bodu)
 
-    # Interpolace pomocí B-spline
+    #interpolace pomocí b-spline
     traj_spline = splev(u_new, tck)
 
     return np.array(traj_spline).T

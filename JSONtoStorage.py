@@ -1,5 +1,5 @@
 import json
-from LorenzTrajecktory import LorenzTrajectory
+from LorenzTrajectory import LorenzTrajectory
 from LorenzSimulation import LorenzSimulation
 
 

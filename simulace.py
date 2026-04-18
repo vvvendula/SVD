@@ -1,6 +1,6 @@
 import numpy as np
 from LorenzSimulator import LorenzSimulator
-from LorenzTrajecktory import LorenzTrajectory
+from LorenzTrajectory import LorenzTrajectory
 
 def simulace(pocatecni_stav, t_max, pocet_bodu, sigma, rho, beta):
     """

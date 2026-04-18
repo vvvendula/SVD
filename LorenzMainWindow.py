@@ -6,11 +6,12 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QColor
 
-from LorenzTrajecktory import LorenzTrajectory
+from LorenzTrajectory import LorenzTrajectory
 from LorenzSimulation import LorenzSimulation
 from LorenzSimulator import LorenzSimulator
 from JSONtoStorage import JSONStorage
 from PlotlyVisualizer import PlotlyVisualizer
+from porovnani_spline import vykresli_trajektorii, animate
 
 
 class LorenzMainWindow(QMainWindow):

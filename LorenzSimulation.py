@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from LorenzTrajecktory import LorenzTrajectory
+from LorenzTrajectory import LorenzTrajectory
 
 @dataclass
 class LorenzSimulation:
