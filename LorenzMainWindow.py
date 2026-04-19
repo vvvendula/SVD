@@ -10,7 +10,6 @@ from LorenzSimulation import LorenzSimulation
 from LorenzSimulator import LorenzSimulator
 from JSONtoStorage import JSONStorage
 from PlotlyVisualizer import PlotlyVisualizer
-from MatplotlibVisualizer import MatplotlibVisualizer
 
 
 class LorenzMainWindow(QMainWindow):
@@ -21,8 +20,7 @@ class LorenzMainWindow(QMainWindow):
 
         self.simulator = LorenzSimulator()
         self.storage = JSONStorage()
-        self.plotly_vis = PlotlyVisualizer()
-        self.mpl_vis = MatplotlibVisualizer()
+        self.visualizer = PlotlyVisualizer()
         self.simulation = LorenzSimulation()
         self.selected_color = "blue"
 
@@ -33,17 +31,15 @@ class LorenzMainWindow(QMainWindow):
         self.setCentralWidget(central)
         main_layout = QHBoxLayout()
         central.setLayout(main_layout)
-
         main_layout.addWidget(self._build_form_panel(), 0)
         main_layout.addWidget(self._build_list_panel(), 1)
 
     def _build_form_panel(self):
-        group = QGroupBox("Parametry trajektorie")
+        group = QGroupBox("Parametry")
         layout = QVBoxLayout()
         group.setLayout(layout)
         form = QFormLayout()
 
-        # Vstupy
         self.sigma_input = QLineEdit("10")
         self.beta_input = QLineEdit("2.6666667")
         self.rho_input = QLineEdit("28")
@@ -54,11 +50,9 @@ class LorenzMainWindow(QMainWindow):
         self.z0_input = QLineEdit("1.0")
         self.label_input = QLineEdit("Trajectory")
 
-        # Výběr solveru
         self.solver_combo = QComboBox()
         self.solver_combo.addItems(["rk4", "solve_ivp"])
 
-        # Výběr B-spline metody
         self.bspline_method_combo = QComboBox()
         self.bspline_method_combo.addItems(["scipy", "cox_de_boor"])
 
@@ -78,25 +72,23 @@ class LorenzMainWindow(QMainWindow):
 
         self.color_preview = QLabel("      ")
         self.color_preview.setStyleSheet(
-            f"background-color: {self.selected_color}; border: 1px solid black;"
-        )
-        self.choose_color_btn = QPushButton("Vybrat barvu")
-        self.choose_color_btn.clicked.connect(self.choose_color)
+            f"background-color: {self.selected_color}; border: 1px solid black;")
+        color_btn = QPushButton("Vybrat barvu")
+        color_btn.clicked.connect(self._choose_color)
+        color_row = QHBoxLayout()
+        color_row.addWidget(self.color_preview)
+        color_row.addWidget(color_btn)
 
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(self.color_preview)
-        color_layout.addWidget(self.choose_color_btn)
+        for label, widget in [
+            ("Sigma", self.sigma_input), ("Beta", self.beta_input),
+            ("Rho", self.rho_input), ("dt", self.dt_input),
+            ("Steps", self.steps_input),
+            ("x0", self.x0_input), ("y0", self.y0_input), ("z0", self.z0_input),
+            ("Label", self.label_input),
+        ]:
+            form.addRow(label, widget)
 
-        form.addRow("Sigma", self.sigma_input)
-        form.addRow("Beta", self.beta_input)
-        form.addRow("Rho", self.rho_input)
-        form.addRow("dt", self.dt_input)
-        form.addRow("Steps", self.steps_input)
-        form.addRow("x0", self.x0_input)
-        form.addRow("y0", self.y0_input)
-        form.addRow("z0", self.z0_input)
-        form.addRow("Label", self.label_input)
-        form.addRow("Barva", color_layout)
+        form.addRow("Barva", color_row)
         form.addRow("Solver", self.solver_combo)
         form.addRow("B-spline metoda", self.bspline_method_combo)
         form.addRow("Frame stride", self.frame_stride_input)
@@ -106,23 +98,22 @@ class LorenzMainWindow(QMainWindow):
 
         layout.addLayout(form)
 
-        # ── Tlačítka ──
-        buttons = {
-            "Přidat trajektorii": self.add_trajectory,
-            "Plotly graf": self.show_plotly,
-            "Matplotlib graf": self.show_matplotlib,
-            "Matplotlib porovnání (spline)": self.show_matplotlib_comparison,
-            "Matplotlib animace (MP4)": self.show_matplotlib_animation,
-            "Uložit JSON": self.save_simulation,
-            "Načíst JSON": self.load_simulation,
-            "Export HTML": self.export_html,
-            "Smazat vybranou": self.remove_selected,
-            "Vyčistit vše": self.clear_all,
-            "Přepočítat vše": self.resimulate_all,
-            "Změnit barvu vybrané": self.change_selected_trajectory_color,
-        }
-
-        for label, slot in buttons.items():
+        buttons = [
+            ("Přidat trajektorii", self._add_trajectory),
+            ("Animovaný graf (Plotly)", self._show_animated),
+            ("Statický graf (Plotly)", self._show_static),
+            ("Porovnání se spline (Plotly)", self._show_comparison),
+            ("Export animace → HTML", self._export_animated_html),
+            ("Export statický → HTML", self._export_static_html),
+            ("Export porovnání → HTML", self._export_comparison_html),
+            ("Uložit JSON", self._save_json),
+            ("Načíst JSON", self._load_json),
+            ("Smazat vybranou", self._remove_selected),
+            ("Vyčistit vše", self._clear_all),
+            ("Přepočítat vše", self._resimulate_all),
+            ("Změnit barvu vybrané", self._change_color),
+        ]
+        for label, slot in buttons:
             btn = QPushButton(label)
             btn.clicked.connect(slot)
             layout.addWidget(btn)
@@ -138,40 +129,35 @@ class LorenzMainWindow(QMainWindow):
         layout.addWidget(self.trajectory_list)
         return group
 
-    # ── Pomocné metody ──
+    # ── Pomocné ──
 
-    def choose_color(self):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.selected_color = color.name()
+    def _choose_color(self):
+        c = QColorDialog.getColor()
+        if c.isValid():
+            self.selected_color = c.name()
             self.color_preview.setStyleSheet(
-                f"background-color: {self.selected_color}; border: 1px solid black;"
-            )
+                f"background-color: {self.selected_color}; border: 1px solid black;")
 
     def _read_form(self):
-        sigma = float(self.sigma_input.text())
-        beta = float(self.beta_input.text())
-        rho = float(self.rho_input.text())
         dt = float(self.dt_input.text())
         steps = int(self.steps_input.text())
-        x0 = float(self.x0_input.text())
-        y0 = float(self.y0_input.text())
-        z0 = float(self.z0_input.text())
-        label = self.label_input.text().strip() or "Trajectory"
-
         if dt <= 0:
             raise ValueError("dt musí být > 0.")
         if steps < 2:
             raise ValueError("steps musí být >= 2.")
-
         return LorenzTrajectory(
-            sigma=sigma, beta=beta, rho=rho,
+            sigma=float(self.sigma_input.text()),
+            beta=float(self.beta_input.text()),
+            rho=float(self.rho_input.text()),
             dt=dt, steps=steps,
-            x0=x0, y0=y0, z0=z0,
-            label=label, color=self.selected_color
+            x0=float(self.x0_input.text()),
+            y0=float(self.y0_input.text()),
+            z0=float(self.z0_input.text()),
+            label=self.label_input.text().strip() or "Trajectory",
+            color=self.selected_color
         )
 
-    def _update_simulation_settings(self):
+    def _sync_settings(self):
         self.simulation.frame_stride = self.frame_stride_input.value()
         self.simulation.loop = self.loop_checkbox.isChecked()
         self.simulation.use_bspline = self.bspline_checkbox.isChecked()
@@ -179,171 +165,176 @@ class LorenzMainWindow(QMainWindow):
         self.simulation.solver_method = self.solver_combo.currentText()
         self.simulation.bspline_method = self.bspline_method_combo.currentText()
 
-    def refresh_list(self):
+    def _refresh_list(self):
         self.trajectory_list.clear()
-        for i, traj in enumerate(self.simulation.trajectories, start=1):
+        for i, t in enumerate(self.simulation.trajectories, 1):
             self.trajectory_list.addItem(
-                f"{i}. {traj.label} | {traj.color} | "
-                f"σ={traj.sigma} β={traj.beta} ρ={traj.rho} "
-                f"dt={traj.dt} steps={traj.steps} pts={len(traj.x)}"
-            )
+                f"{i}. {t.label} | {t.color} | "
+                f"σ={t.sigma} β={t.beta} ρ={t.rho} "
+                f"dt={t.dt} steps={t.steps} pts={len(t.x)}")
 
-    def show_error(self, text):
-        QMessageBox.critical(self, "Chyba", text)
-
-    def show_info(self, text):
-        QMessageBox.information(self, "Info", text)
-
-    def _get_selected_traj(self):
+    def _selected_traj(self):
         row = self.trajectory_list.currentRow()
         if row < 0:
             raise ValueError("Vyber trajektorii ze seznamu.")
         return self.simulation.trajectories[row]
 
+    def _err(self, text):
+        QMessageBox.critical(self, "Chyba", text)
+
+    def _info(self, text):
+        QMessageBox.information(self, "Info", text)
+
     # ── Akce ──
 
-    def add_trajectory(self):
+    def _add_trajectory(self):
         try:
-            self._update_simulation_settings()
+            self._sync_settings()
             traj = self._read_form()
-            method = self.simulation.solver_method
-            self.simulator.simulate(traj, method=method)
+            self.simulator.simulate(traj, method=self.simulation.solver_method)
             self.simulation.add_trajectory(traj)
-            self.refresh_list()
-            self.show_info(f"Trajektorie přidána (solver: {method}).")
+            self._refresh_list()
+            self._info(f"Přidáno (solver: {self.simulation.solver_method}).")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def show_plotly(self):
+    def _show_animated(self):
         try:
-            self._update_simulation_settings()
+            self._sync_settings()
             if not self.simulation.trajectories:
                 raise ValueError("Žádné trajektorie.")
-            self.plotly_vis.show(self.simulation)
+            self.visualizer.show_animated(self.simulation)
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def show_matplotlib(self):
+    def _show_static(self):
         try:
+            self._sync_settings()
             if not self.simulation.trajectories:
                 raise ValueError("Žádné trajektorie.")
-            self.mpl_vis.plot_multiple(self.simulation.trajectories)
+            self.visualizer.show_static(self.simulation)
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def show_matplotlib_comparison(self):
+    def _show_comparison(self):
         try:
-            self._update_simulation_settings()
-            traj = self._get_selected_traj()
-            method = self.simulation.bspline_method
-            self.mpl_vis.plot_comparison(traj, bspline_method=method)
+            self._sync_settings()
+            traj = self._selected_traj()
+            self.visualizer.show_comparison(
+                traj, bspline_method=self.simulation.bspline_method)
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def show_matplotlib_animation(self):
+    def _export_animated_html(self):
         try:
-            self._update_simulation_settings()
-            traj = self._get_selected_traj()
+            self._sync_settings()
+            if not self.simulation.trajectories:
+                raise ValueError("Žádné trajektorie.")
             path, _ = QFileDialog.getSaveFileName(
-                self, "Uložit animaci", "video.mp4", "MP4 (*.mp4)"
-            )
+                self, "Export animace", "", "HTML (*.html)")
             if path:
-                method = self.simulation.solver_method
-                self.mpl_vis.animate(traj, solver_method=method, save_path=path)
-                self.show_info(f"Animace uložena: {path}")
+                self.visualizer.save_html(self.simulation, path, animated=True)
+                self._info(f"Animace uložena: {path}")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def save_simulation(self):
+    def _export_static_html(self):
         try:
-            self._update_simulation_settings()
+            self._sync_settings()
+            if not self.simulation.trajectories:
+                raise ValueError("Žádné trajektorie.")
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export statický", "", "HTML (*.html)")
+            if path:
+                self.visualizer.save_html(self.simulation, path, animated=False)
+                self._info(f"Statický graf uložen: {path}")
+        except Exception as e:
+            self._err(str(e))
+
+    def _export_comparison_html(self):
+        try:
+            self._sync_settings()
+            traj = self._selected_traj()
+            path, _ = QFileDialog.getSaveFileName(
+                self, "Export porovnání", "", "HTML (*.html)")
+            if path:
+                self.visualizer.save_comparison_html(
+                    traj, path, bspline_method=self.simulation.bspline_method)
+                self._info(f"Porovnání uloženo: {path}")
+        except Exception as e:
+            self._err(str(e))
+
+    def _save_json(self):
+        try:
+            self._sync_settings()
             if not self.simulation.trajectories:
                 raise ValueError("Není co uložit.")
             path, _ = QFileDialog.getSaveFileName(
-                self, "Uložit simulaci", "", "JSON (*.json)"
-            )
+                self, "Uložit", "", "JSON (*.json)")
             if path:
                 self.storage.save_simulation(self.simulation, path)
-                self.show_info("Simulace uložena.")
+                self._info("Uloženo.")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def load_simulation(self):
+    def _load_json(self):
         try:
             path, _ = QFileDialog.getOpenFileName(
-                self, "Načíst simulaci", "", "JSON (*.json)"
-            )
+                self, "Načíst", "", "JSON (*.json)")
             if path:
                 self.simulation = self.storage.load_simulation(path)
                 self.frame_stride_input.setValue(self.simulation.frame_stride)
                 self.loop_checkbox.setChecked(self.simulation.loop)
                 self.bspline_checkbox.setChecked(self.simulation.use_bspline)
                 self.points_per_interval_input.setValue(self.simulation.points_per_interval)
-
-                idx_solver = self.solver_combo.findText(self.simulation.solver_method)
-                if idx_solver >= 0:
-                    self.solver_combo.setCurrentIndex(idx_solver)
-
-                idx_bs = self.bspline_method_combo.findText(self.simulation.bspline_method)
-                if idx_bs >= 0:
-                    self.bspline_method_combo.setCurrentIndex(idx_bs)
-
-                self.refresh_list()
-                self.show_info("Simulace načtena.")
+                idx = self.solver_combo.findText(self.simulation.solver_method)
+                if idx >= 0:
+                    self.solver_combo.setCurrentIndex(idx)
+                idx2 = self.bspline_method_combo.findText(self.simulation.bspline_method)
+                if idx2 >= 0:
+                    self.bspline_method_combo.setCurrentIndex(idx2)
+                self._refresh_list()
+                self._info("Načteno.")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def export_html(self):
-        try:
-            self._update_simulation_settings()
-            if not self.simulation.trajectories:
-                raise ValueError("Není co exportovat.")
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Export HTML", "", "HTML (*.html)"
-            )
-            if path:
-                self.plotly_vis.save_html(self.simulation, path)
-                self.show_info("HTML uložen.")
-        except Exception as e:
-            self.show_error(str(e))
-
-    def remove_selected(self):
+    def _remove_selected(self):
         try:
             row = self.trajectory_list.currentRow()
             if row < 0:
                 raise ValueError("Vyber trajektorii.")
             self.simulation.remove_trajectory(row)
-            self.refresh_list()
+            self._refresh_list()
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def clear_all(self):
+    def _clear_all(self):
         self.simulation.clear()
-        self.refresh_list()
-        self.show_info("Vše odstraněno.")
+        self._refresh_list()
+        self._info("Vyčištěno.")
 
-    def resimulate_all(self):
+    def _resimulate_all(self):
         try:
-            self._update_simulation_settings()
+            self._sync_settings()
             if not self.simulation.trajectories:
                 raise ValueError("Žádné trajektorie.")
-            method = self.simulation.solver_method
+            m = self.simulation.solver_method
             for traj in self.simulation.trajectories:
-                self.simulator.simulate(traj, method=method)
-            self.refresh_list()
-            self.show_info(f"Vše přepočítáno (solver: {method}).")
+                self.simulator.simulate(traj, method=m)
+            self._refresh_list()
+            self._info(f"Přepočítáno (solver: {m}).")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))
 
-    def change_selected_trajectory_color(self):
+    def _change_color(self):
         try:
             row = self.trajectory_list.currentRow()
             if row < 0:
                 raise ValueError("Vyber trajektorii.")
-            color = QColorDialog.getColor()
-            if color.isValid():
-                self.simulation.trajectories[row].color = color.name()
-                self.refresh_list()
-                self.show_info("Barva změněna.")
+            c = QColorDialog.getColor()
+            if c.isValid():
+                self.simulation.trajectories[row].color = c.name()
+                self._refresh_list()
+                self._info("Barva změněna.")
         except Exception as e:
-            self.show_error(str(e))
+            self._err(str(e))

@@ -10,9 +10,7 @@ class LorenzSimulation:
     title: str = "Lorenz Simulation"
     use_bspline: bool = False
     points_per_interval: int = 5
-    # Nový přepínač: "rk4" nebo "solve_ivp"
     solver_method: str = "rk4"
-    # Nový přepínač: "scipy" nebo "cox_de_boor"
     bspline_method: str = "scipy"
 
     MAX_TRAJECTORIES = 5

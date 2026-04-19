@@ -14,7 +14,6 @@ class LorenzTrajectory:
     label: str = "Trajectory"
     color: str = "blue"
 
-    # Výsledná data
     t: list = field(default_factory=list)
     x: list = field(default_factory=list)
     y: list = field(default_factory=list)
