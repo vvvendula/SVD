@@ -10,8 +10,7 @@ class JSONStorage:
 
     def load_trajectory(self, path: str) -> LorenzTrajectory:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return LorenzTrajectory.from_dict(data)
+            return LorenzTrajectory.from_dict(json.load(f))
 
     def save_simulation(self, simulation: LorenzSimulation, path: str):
         with open(path, "w", encoding="utf-8") as f:
@@ -19,5 +18,4 @@ class JSONStorage:
 
     def load_simulation(self, path: str) -> LorenzSimulation:
         with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return LorenzSimulation.from_dict(data)
+            return LorenzSimulation.from_dict(json.load(f))
