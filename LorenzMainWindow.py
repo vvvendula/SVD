@@ -100,11 +100,9 @@ class LorenzMainWindow(QMainWindow):
 
         buttons = [
             ("Přidat trajektorii", self._add_trajectory),
-            ("Animovaný graf (Plotly)", self._show_animated),
-            ("Statický graf (Plotly)", self._show_static),
-            ("Porovnání se spline (Plotly)", self._show_comparison),
-            ("Export animace → HTML", self._export_animated_html),
-            ("Export statický → HTML", self._export_static_html),
+            ("Zobrazení trajektorie",self._show_plotly),
+            ("Porovnání se spline", self._show_comparison),
+            ("Export → HTML", self._export_to_html),
             ("Export porovnání → HTML", self._export_comparison_html),
             ("Uložit JSON", self._save_json),
             ("Načíst JSON", self._load_json),
@@ -198,21 +196,13 @@ class LorenzMainWindow(QMainWindow):
         except Exception as e:
             self._err(str(e))
 
-    def _show_animated(self):
-        try:
-            self._sync_settings()
-            if not self.simulation.trajectories:
-                raise ValueError("Žádné trajektorie.")
-            self.visualizer.show_animated(self.simulation)
-        except Exception as e:
-            self._err(str(e))
 
-    def _show_static(self):
+    def _show_plotly(self):
         try:
             self._sync_settings()
             if not self.simulation.trajectories:
                 raise ValueError("Žádné trajektorie.")
-            self.visualizer.show_static(self.simulation)
+            self.visualizer.show(self.simulation)
         except Exception as e:
             self._err(str(e))
 
@@ -225,29 +215,21 @@ class LorenzMainWindow(QMainWindow):
         except Exception as e:
             self._err(str(e))
 
-    def _export_animated_html(self):
-        try:
-            self._sync_settings()
-            if not self.simulation.trajectories:
-                raise ValueError("Žádné trajektorie.")
-            path, _ = QFileDialog.getSaveFileName(
-                self, "Export animace", "", "HTML (*.html)")
-            if path:
-                self.visualizer.save_html(self.simulation, path, animated=True)
-                self._info(f"Animace uložena: {path}")
-        except Exception as e:
-            self._err(str(e))
 
-    def _export_static_html(self):
+    def _export_to_html(self):
         try:
             self._sync_settings()
             if not self.simulation.trajectories:
-                raise ValueError("Žádné trajektorie.")
+                raise ValueError("Není co exportovat. Přidejte trajektorii.")
+        
+            # Otevře klasické dialogové okno pro uložení souboru
             path, _ = QFileDialog.getSaveFileName(
-                self, "Export statický", "", "HTML (*.html)")
+                self, "Exportovat interaktivní graf", "", "HTML soubor (*.html)"
+            )
+        
             if path:
-                self.visualizer.save_html(self.simulation, path, animated=False)
-                self._info(f"Statický graf uložen: {path}")
+                self.visualizer.save_html(self.simulation, path)
+                self._info(f"Graf byl úspěšně uložen do:\n{path}")
         except Exception as e:
             self._err(str(e))
 

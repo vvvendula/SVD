@@ -50,15 +50,27 @@ class BSpline:
         n = len(traj_array) - 1
         if n < 1:
             return traj_array.copy()
+        
         k = min(k, n)
         knots = np.concatenate(([0]*k, np.linspace(0, 1, n-k+2), [1]*k))
         t_values = np.linspace(0, 1, pocet_novych_bodu)
         result = np.zeros((pocet_novych_bodu, 3))
+        
         for idx, t in enumerate(t_values):
             bod = np.zeros(3)
-            for i in range(n+1):
+
+            if t == 1.0:
+                span = len(knots) - k - 2
+            else:
+                span = np.searchsorted(knots, t, side='right') - 1
+            start_idx = max(0, span - k)
+            end_idx = min(n, span)
+            
+            for i in range(start_idx, end_idx + 1):
                 bod += BSpline._cox_de_boor(i, k, t, knots) * traj_array[i]
+                
             result[idx] = bod
+            
         return result
 
     @staticmethod

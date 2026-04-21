@@ -13,149 +13,6 @@ class PlotlyVisualizer:
                                          points_per_interval=points_per_interval)
 
     # ══════════════════════════════════════════════
-    # Animovaný graf (hlavní vizualizace)
-    # ══════════════════════════════════════════════
-    def create_animated_figure(self, simulation):
-        trajectories = simulation.trajectories
-        if not trajectories:
-            raise ValueError("Žádné trajektorie k vizualizaci.")
-
-        frame_stride = max(1, simulation.frame_stride)
-        use_bspline = simulation.use_bspline
-        ppi = max(1, simulation.points_per_interval)
-        bs_method = simulation.bspline_method
-
-        prepared = []
-        for traj in trajectories:
-            orig_len = len(traj.x)
-            if orig_len == 0:
-                continue
-
-            if use_bspline:
-                sx, sy, sz, uf = self._get_bspline_data(
-                    traj.x, traj.y, traj.z, 0.0, ppi, bs_method)
-            else:
-                sx = np.array(traj.x, dtype=float)
-                sy = np.array(traj.y, dtype=float)
-                sz = np.array(traj.z, dtype=float)
-                uf = np.linspace(0, 1, max(orig_len, 1))
-
-            prepared.append({
-                "label": traj.label, "color": traj.color,
-                "x": sx, "y": sy, "z": sz,
-                "u_fine": uf, "original_len": orig_len
-            })
-
-        if not prepared:
-            raise ValueError("Žádná platná data.")
-
-        max_len = max(p["original_len"] for p in prepared)
-        indices = list(range(1, max_len, frame_stride))
-        if not indices:
-            indices = [max_len - 1]
-        elif indices[-1] != max_len - 1:
-            indices.append(max_len - 1)
-
-        def to_u(idx, orig):
-            return 0.0 if orig <= 1 else idx / (orig - 1)
-
-        def end_idx(td, step):
-            u = to_u(step, td["original_len"])
-            i = np.searchsorted(td["u_fine"], u, side="right") - 1
-            return max(0, min(i, len(td["x"]) - 1))
-
-        init_step = indices[0]
-        init_traces = []
-        for td in prepared:
-            s = min(init_step, td["original_len"] - 1)
-            ei = end_idx(td, s)
-            init_traces.append(go.Scatter3d(
-                x=td["x"][:ei+1], y=td["y"][:ei+1], z=td["z"][:ei+1],
-                mode="lines", line=dict(color=td["color"], width=4),
-                name=td["label"]
-            ))
-
-        frames = []
-        for step in indices:
-            fd = []
-            for td in prepared:
-                eff = min(step, td["original_len"] - 1)
-                ei = end_idx(td, eff)
-                fd.append(go.Scatter3d(
-                    x=td["x"][:ei+1], y=td["y"][:ei+1], z=td["z"][:ei+1],
-                    mode="lines", line=dict(color=td["color"], width=4),
-                    name=td["label"]
-                ))
-            frames.append(go.Frame(data=fd, name=str(step)))
-
-        fig = go.Figure(data=init_traces, frames=frames)
-        fig.update_layout(
-            title=simulation.title,
-            scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
-            updatemenus=[{
-                "type": "buttons", "showactive": False,
-                "buttons": [
-                    {"label": "▶ Play", "method": "animate",
-                     "args": [None, {"frame": {"duration": 50, "redraw": True},
-                                     "fromcurrent": True,
-                                     "transition": {"duration": 0}}]},
-                    {"label": "⏸ Pause", "method": "animate",
-                     "args": [[None], {"frame": {"duration": 0, "redraw": False},
-                                       "mode": "immediate"}]}
-                ], "x": 0.1, "y": 0
-            }],
-            sliders=[{
-                "steps": [
-                    {"args": [[str(s)], {"frame": {"duration": 0, "redraw": True},
-                                         "mode": "immediate",
-                                         "transition": {"duration": 0}}],
-                     "label": str(s), "method": "animate"}
-                    for s in indices
-                ],
-                "x": 0.1, "len": 0.8,
-                "currentvalue": {"prefix": "Krok: "}
-            }],
-            margin=dict(l=0, r=0, b=0, t=40)
-        )
-        return fig
-
-    # ══════════════════════════════════════════════
-    # Statický graf (bez animace)
-    # ══════════════════════════════════════════════
-    def create_static_figure(self, simulation):
-        trajectories = simulation.trajectories
-        if not trajectories:
-            raise ValueError("Žádné trajektorie.")
-
-        use_bspline = simulation.use_bspline
-        ppi = max(1, simulation.points_per_interval)
-        bs_method = simulation.bspline_method
-
-        traces = []
-        for traj in trajectories:
-            if len(traj.x) == 0:
-                continue
-            if use_bspline:
-                sx, sy, sz, _ = self._get_bspline_data(
-                    traj.x, traj.y, traj.z, 0.0, ppi, bs_method)
-            else:
-                sx, sy, sz = traj.x, traj.y, traj.z
-
-            traces.append(go.Scatter3d(
-                x=sx, y=sy, z=sz,
-                mode="lines", line=dict(color=traj.color, width=3),
-                name=traj.label
-            ))
-
-        fig = go.Figure(data=traces)
-        fig.update_layout(
-            title=simulation.title,
-            scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
-            margin=dict(l=0, r=0, b=0, t=40)
-        )
-        return fig
-
-    # ══════════════════════════════════════════════
     # Porovnání: numerická data vs B-spline
     # ══════════════════════════════════════════════
     def create_comparison_figure(self, traj, bspline_method="scipy",
@@ -199,24 +56,157 @@ class PlotlyVisualizer:
         )
         return fig
 
+    def create_unified_figure(self, simulation):
+        trajectories = simulation.trajectories
+        if not trajectories:
+            raise ValueError("Žádné trajektorie k vizualizaci.")
+
+        frame_stride = max(1, simulation.frame_stride)
+        use_bspline = simulation.use_bspline
+        ppi = max(1, simulation.points_per_interval)
+        bs_method = simulation.bspline_method
+
+        prepared = []
+        for traj in trajectories:
+            if len(traj.x) == 0: continue
+            
+            if use_bspline:
+                sx, sy, sz, uf = self._get_bspline_data(traj.x, traj.y, traj.z, ppi, bs_method)
+            else:
+                sx, sy, sz = np.array(traj.x), np.array(traj.y), np.array(traj.z)
+                uf = np.linspace(0, 1, len(sx))
+
+            prepared.append({
+                "label": traj.label, "color": traj.color,
+                "x": sx, "y": sy, "z": sz, "u_fine": uf,
+                "original_len": len(traj.x)
+            })
+
+        max_orig_len = max(p["original_len"] for p in prepared)
+        indices = list(range(0, max_orig_len, frame_stride))
+        if indices[-1] != max_orig_len - 1:
+            indices.append(max_orig_len - 1)
+
+        fig = go.Figure()
+        num_trajs = len(prepared)
+
+        
+        for td in prepared:
+            fig.add_trace(go.Scatter3d(
+                x=td["x"], y=td["y"], z=td["z"],
+                mode="lines", name=f"{td['label']} (Plná)",
+                line=dict(color=td["color"], width=3),
+                visible=True
+            ))
+
+        
+        for td in prepared:
+            fig.add_trace(go.Scatter3d(
+                x=[td["x"][0]], y=[td["y"][0]], z=[td["z"][0]],
+                mode="lines", name=td["label"],
+                line=dict(color=td["color"], width=4),
+                visible=False
+            ))
+
+        def get_end_idx(td, step_idx):
+            u = 0.0 if td["original_len"] <= 1 else step_idx / (td["original_len"] - 1)
+            i = np.searchsorted(td["u_fine"], min(1.0, max(0.0, u)), side="right") - 1
+            return max(0, min(i, len(td["x"]) - 1))
+
+        
+        frames = []
+        for step in indices:
+            frame_data = []
+            for i in range(num_trajs):
+                frame_data.append(go.Scatter3d(x=prepared[i]["x"], y=prepared[i]["y"], z=prepared[i]["z"]))
+            for td in prepared:
+                ei = get_end_idx(td, min(step, td["original_len"] - 1))
+                frame_data.append(go.Scatter3d(x=td["x"][:ei+1], y=td["y"][:ei+1], z=td["z"][:ei+1]))
+            frames.append(go.Frame(data=frame_data, name=str(step)))
+
+        fig.frames = frames
+
+        
+        vis_static = [True] * num_trajs + [False] * num_trajs
+        vis_anim = [False] * num_trajs + [True] * num_trajs
+
+        
+        animation_slider = {
+            "steps": [
+                {"args": [[str(s)], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
+                 "label": str(s), "method": "animate"} for s in indices
+            ],
+            "x": 0.1, "len": 0.8, "currentvalue": {"prefix": "Krok: "}
+        }
+
+        play_pause_menu = {
+            "type": "buttons", "showactive": False, "x": 0.1, "y": 0, "visible": False, 
+            "buttons": [
+                {"label": "▶ Play", "method": "animate",
+                 "args": [None, {"frame": {"duration": 30, "redraw": True}, "fromcurrent": True}]},
+                {"label": "⏸ Pause", "method": "animate",
+                 "args": [[None], {"frame": {"duration": 0, "redraw": False}, "mode": "immediate"}]}
+            ]
+        }
+
+        fig.update_layout(
+            updatemenus=[
+              
+                {
+                    "type": "buttons", "direction": "left", "x": 0.1, "y": 1.15,
+                    "buttons": [
+                        {
+                            "label": "📊 Statický pohled", 
+                            "method": "update", 
+                            "args": [
+                                {"visible": vis_static}, 
+                                {
+                                    "title": "Lorenz Simulation - Statický",
+                                    "sliders": [],  
+                                    "updatemenus[1].visible": False 
+                                }
+                            ]
+                        },
+                        {
+                            "label": "🎥 Animace", 
+                            "method": "update", 
+                            "args": [
+                                {"visible": vis_anim}, 
+                                {
+                                    "title": "Lorenz Simulation - Animace",
+                                    "sliders": [animation_slider], 
+                                    "updatemenus[1].visible": True  
+                                }
+                            ]
+                        }
+                    ]
+                },
+                play_pause_menu 
+            ],
+            sliders=[], 
+            scene=dict(xaxis_title="X", yaxis_title="Y", zaxis_title="Z"),
+            title=simulation.title,
+            margin=dict(l=0, r=0, b=0, t=50)
+        )
+        return fig
+
     # ══════════════════════════════════════════════
     # Veřejné metody
     # ══════════════════════════════════════════════
-    def show_animated(self, simulation):
-        self.create_animated_figure(simulation).show()
-
-    def show_static(self, simulation):
-        self.create_static_figure(simulation).show()
 
     def show_comparison(self, traj, **kwargs):
         self.create_comparison_figure(traj, **kwargs).show()
 
-    def save_html(self, simulation, path: str, animated=True):
-        if animated:
-            fig = self.create_animated_figure(simulation)
-        else:
-            fig = self.create_static_figure(simulation)
+
+    def save_html(self, simulation, path: str):
+        fig = self.create_unified_figure(simulation)
         fig.write_html(path)
 
     def save_comparison_html(self, traj, path: str, **kwargs):
         self.create_comparison_figure(traj, **kwargs).write_html(path)
+
+    def show(self, simulation):
+        self.create_unified_figure(simulation).show()
+
+    def save_html(self, simulation, path: str):
+        self.create_unified_figure(simulation).write_html(path)
