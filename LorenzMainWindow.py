@@ -154,7 +154,10 @@ class LorenzMainWindow(QMainWindow):
             y0=float(self.y0_input.text()),
             z0=float(self.z0_input.text()),
             label=self.label_input.text().strip() or "Trajectory",
-            color=self.selected_color
+            color=self.selected_color,
+            use_bspline=self.bspline_checkbox.isChecked(),
+            bspline_method=self.bspline_method_combo.currentText(),
+            points_per_interval=self.points_per_interval_input.value(),
         )
 
     def _sync_settings(self):

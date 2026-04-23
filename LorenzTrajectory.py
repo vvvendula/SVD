@@ -14,6 +14,11 @@ class LorenzTrajectory:
     label: str = "Trajectory"
     color: str = "blue"
 
+    # B-spline nastavení per trajektorie
+    use_bspline: bool = False
+    bspline_method: str = "scipy"
+    points_per_interval: int = 5
+
     t: list = field(default_factory=list)
     x: list = field(default_factory=list)
     y: list = field(default_factory=list)
@@ -25,6 +30,9 @@ class LorenzTrajectory:
             "dt": self.dt, "steps": self.steps,
             "x0": self.x0, "y0": self.y0, "z0": self.z0,
             "label": self.label, "color": self.color,
+            "use_bspline": self.use_bspline,
+            "bspline_method": self.bspline_method,
+            "points_per_interval": self.points_per_interval,
             "t": self.t, "x": self.x, "y": self.y, "z": self.z,
         }
 
@@ -36,6 +44,9 @@ class LorenzTrajectory:
             x0=data.get("x0", 1.0), y0=data.get("y0", 1.0), z0=data.get("z0", 1.0),
             label=data.get("label", "Trajectory"),
             color=data.get("color", "blue"),
+            use_bspline=data.get("use_bspline", False),
+            bspline_method=data.get("bspline_method", "scipy"),
+            points_per_interval=data.get("points_per_interval", 5),
         )
         obj.t = data.get("t", [])
         obj.x = data.get("x", [])
